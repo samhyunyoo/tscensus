@@ -150,7 +150,15 @@ ts2015 <- tscensus2015 |>
   
     mar = as.numeric(V48), 
     agefm = as.numeric(V76), 
-
+    agefmgr = case_when(agefm %in% c(1, 2) ~ "<20", 
+                        agefm == 3 ~ "20-24", 
+                        agefm == 4 ~ "25-29", 
+                        agefm == 5 ~ "30-34", 
+                        agefm == 6 ~ "35-39", 
+                        agefm == 7  ~ "40+", 
+                        TRUE ~ NA_character_
+    ),
+    
     ceb_boy = as.numeric(V78), 
     ceb_girl = as.numeric(V80), 
     ceb = rowSums(across(c(ceb_boy, ceb_girl)), na.rm = TRUE), 
