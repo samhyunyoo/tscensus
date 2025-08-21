@@ -16,10 +16,11 @@
 install.packages("dplyr")
 library(dplyr)
 
-mdis <- read.table("1960_2%_인구사항_20250821_54801.csv", header=FALSE, sep=",", colClasses = c("character"
+mdis <- read.table("rawdata/1960_2%_인구사항_20250821_54801.csv", header=FALSE, sep=",", colClasses = c("character"
 , "numeric", "character", "numeric", "character", "numeric", "character", "character", "character", "character", "numeric", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character"
 , "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "numeric"
 , "numeric", "character", "character", "character", "character", "character", "character", "numeric"), skip=1, na.string=c("*","**","***","****","*****","******","*******","********","*********","**********","."))
+saveRDS(mdis, "data/tscensus1960.rds")
 
         mdis$V1<- recode_factor(mdis$V1, '0'="서울특별시")
         mdis$V1<- recode_factor(mdis$V1, '1'="경기도")

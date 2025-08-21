@@ -13,15 +13,18 @@
 #
 #**********************************************************************
 
-install.packages("dplyr")
+# install.packages("dplyr")
 library(dplyr)
 
-mdis <- read.table("2020_2%_인구사항_20250821_05639.csv", header=FALSE, sep=",", colClasses = c("character"
+mdis <- read.table("rawdata/2020_2%_인구사항_20250821_05639.csv", header=FALSE, sep=",", colClasses = c("character"
 , "character", "character", "character", "character", "character", "character", "numeric", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character"
 , "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character"
 , "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "character", "numeric"
 , "character", "character", "character", "character", "character", "character", "character", "character", "character", "numeric", "character", "numeric", "character", "numeric", "numeric", "character", "character", "character", "character", "character"
 , "character", "character", "character", "character", "character", "character", "character", "character", "numeric"), skip=1, na.string=c("*","**","***","****","*****","******","*******","********","*********","**********","."))
+
+saveRDS(mdis, "data/tscensus2020.rds")
+
 
         mdis$V1<- recode_factor(mdis$V1, '11'="서울특별시")
         mdis$V1<- recode_factor(mdis$V1, '21'="부산광역시")
@@ -301,6 +304,7 @@ mdis <- read.table("2020_2%_인구사항_20250821_05639.csv", header=FALSE, sep=",",
         mdis$V88<- recode_factor(mdis$V88, '1'="국가 및 지방자지단체의 보조")
         mdis$V89<- recode_factor(mdis$V89, '1'="기타")
 
+                
 colnames(mdis) = c("행정구역시도코드"
 , "가구일련번호", "행정구역시군구코드", "동읍면부_구분코드", "가구원번호", "조사구특성코드", "성별코드", "만연령", "가구주관계코드", "교육정도코드", "수학구분코드", "출생국적_대한민국여부", "현재국적_대한민국여부", "아동보육_부모_돌봄주체여부", "아동보육_조부모_돌봄주체여부", "출생지구분코드", "아동보육_기타가족및친인척_돌봄주체여부", "5년전거주지_구분코드", "출생지_타행정구역시도코드", "아동보육_가사도우미및이웃사람_돌봄주체여부", "1년전거주지_구분코드"
 , "아동보육_유치원_돌봄주체여부", "1년전거주지_타시도행정구역코드", "아동보육_어린이집및놀이방_돌봄주체여부", "활동제약_정신적제약_지속여부", "5년전거주지_타시도행정구역코드", "활동제약_육체적제약_지속여부", "아동보육_방과후학교_돌봄주체여부", "아동보육_학원_돌봄주체여부", "아동보육_혼자및아동끼리지냄_돌봄주체여부", "통근통학구분코드", "통근통학장소코드", "아동보육_지역아동센터_돌봄주체여부", "아동보육_기타_돌봄주체여부", "활동제약_시각장애_지속여부", "경제활동상태코드", "활동제약_청각장애_지속여부", "종사상지위코드", "산업대분류코드", "활동제약_언어장애_지속여부", "직업대분류코드"
