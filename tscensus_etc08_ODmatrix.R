@@ -1,0 +1,58 @@
+################################################################################
+#
+# Creating origin-Destination matrix 
+#
+# 2000, 2010, 2015, 2020  
+#
+################################################################################
+
+
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(scales)
+library(forcats)
+
+colnames(pop2020)
+
+## 공통: 4개 권역(Abroad 제외) 고정 레벨
+lev4 <- c("Seoul","Rest Capital","Metros","Provinces")
+
+## 1) 한 연도 처리 함수: 전체/남/여 행렬 반환
+make_mats <- function(df){
+  d <- df %>%
+    filter(org_region5 != "Abroad", res_region5 != "Abroad") %>%
+    mutate(
+      # 'Metros'로 들어와도 'Metros'로 통일
+      org = factor(sub("^Metros$", "Metros", org_region5), levels = lev4),
+      res = factor(sub("^Metros$", "Metros", res_region5), levels = lev4),
+      sex = factor(sex, levels = c("Male","Female"))  # 없는 성별도 0으로 채워짐
+    )
+  
+  arr <- xtabs(pop_weighted ~ org + res + sex, data = d)
+  
+  all <- apply(arr, c(1,2), sum)
+  m   <- as.matrix(arr[,,"Male",   drop=TRUE])
+  f   <- as.matrix(arr[,,"Female", drop=TRUE])
+  
+  storage.mode(all) <- storage.mode(m) <- storage.mode(f) <- "numeric"
+  list(all = all, male = m, female = f)
+}
+
+## 2) 연도 루프
+years <- c(2000, 2010, 2015, 2020)
+
+mats <- setNames(vector("list", length(years)), years)
+for (y in years) {
+  df <- get(paste0("pop", y), envir = .GlobalEnv)
+  mats[[as.character(y)]] <- make_mats(df)
+}
+
+## 3) (선택) 환경에 개별 객체로 풀기: matYYYY / matYYYYm / matYYYYf
+out <- list()
+for (y in years) {
+  out[[paste0("mat", y)  ]] <- mats[[as.character(y)]]$all
+  out[[paste0("mat", y, "m")]] <- mats[[as.character(y)]]$male
+  out[[paste0("mat", y, "f")]] <- mats[[as.character(y)]]$female
+}
+list2env(out, .GlobalEnv)

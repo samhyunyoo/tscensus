@@ -1,0 +1,98 @@
+################################################################################
+#
+# Charts with Matrix indicators  
+#
+# 2000, 2010, 2015, 2020  
+#
+################################################################################
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+## 1) 스칼라 지표 추이 (정착률/GMI/Shorrocks M) -----------------------
+plot_scalar_trends <- function(df_scalars, save_path = NULL) {
+  lev_sex <- c("All","Male","Female")
+  df <- df_scalars %>%
+    mutate(sex = factor(sex, levels = lev_sex)) %>%
+    select(year, sex, stay_rate, gmi, shorrocks_M) %>%
+    pivot_longer(c(stay_rate, gmi, shorrocks_M),
+                 names_to = "metric", values_to = "value") %>%
+    mutate(metric = factor(metric,
+                           levels = c("stay_rate","gmi","shorrocks_M"),
+                           labels = c("Stay rate (diagonal share)",
+                                      "GMI (gross migration intensity)",
+                                      "Shorrocks M")))
+  
+  p <- ggplot(df, aes(year, value, color = sex)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 2) +
+    scale_y_continuous(labels = percent, limits = c(0, 1)) +
+    scale_x_continuous(breaks = sort(unique(df$year))) +
+    labs(title = "Internal migration metrics by year and sex",
+         subtitle = "Stay rate, GMI, Shorrocks M",
+         x = NULL, y = NULL, color = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom") +
+    facet_wrap(~ metric, scales = "free_y")
+  if (!is.null(save_path)) {
+    dir.create(dirname(save_path), showWarnings = FALSE, recursive = TRUE)
+    ggsave(save_path, p, width = 10, height = 5.5, dpi = 300)
+  }
+  p
+}
+
+## 2) Lift 히트맵 (연도/성별 단위) -----------------------------------
+# log2(lift)로 그리면 기대치(=1)가 0으로 센터링되어 해석이 직관적입니다.
+plot_lift_heatmap <- function(df_lift, year, sex = c("All","Male","Female"),
+                              log2_scale = TRUE, save_dir = NULL) {
+  sex <- match.arg(sex)
+  lev4 <- c("Seoul","Rest Capital","Metros","Provinces")
+  
+  d <- df_lift %>%
+    filter(year == year, sex == sex) %>%
+    mutate(
+      origin      = factor(origin,      levels = lev4),
+      destination = factor(destination, levels = lev4),
+      val = if (log2_scale) log2(lift) else lift
+    )
+  
+  title_main <- if (log2_scale)
+    "Lift heatmap (log2 scale; 0 = expected)" else
+      "Lift heatmap (ratio; 1 = expected)"
+  
+  p <- ggplot(d, aes(destination, origin, fill = val)) +
+    geom_tile(color = "grey90") +
+    { if (log2_scale)
+      scale_fill_gradient2(low = "#4575B4", mid = "white", high = "#D73027",
+                           midpoint = 0, name = "log2(lift)")
+      else
+        scale_fill_gradient2(low = "#4575B4", mid = "white", high = "#D73027",
+                             midpoint = 1, name = "lift") } +
+    coord_fixed() +
+    labs(title = paste0(title_main, " — ", year, " (", sex, ")"),
+         x = "Residence", y = "Birthplace") +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid = element_blank())
+  if (!is.null(save_dir)) {
+    dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
+    fn <- file.path(save_dir, sprintf("heatmap_lift_%s_%s.png", year, tolower(sex)))
+    ggsave(fn, p, width = 6, height = 5, dpi = 300)
+  }
+  p
+}
+
+## 3) 사용 예 ----------------------------------------------------------
+# (1) 스칼라 지표 추이 그림 + 저장
+p_trend <- plot_scalar_trends(df_scalars, save_path = "graphs/scalars_trend.png")
+print(p_trend)
+
+# (2) 모든 연도×성별 Lift 히트맵 저장
+yrs <- sort(unique(df_lift$year))
+for (yr in yrs) {
+  for (sx in c("All","Male","Female")) {
+    print(plot_lift_heatmap(df_lift, year = yr, sex = sx,
+                            log2_scale = TRUE, save_dir = "graphs/lift"))
+  }
+}

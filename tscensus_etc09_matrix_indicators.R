@@ -1,0 +1,179 @@
+################################################################################
+#
+# Matrix indicators  
+#
+# 2000, 2010, 2015, 2020  
+#
+################################################################################
+
+
+
+## ====== 0) 준비 ======
+lev4_std <- c("Seoul","Rest Capital","Metros","Provinces")
+
+normalize_names <- function(v){
+  v <- as.character(v)
+  v <- sub("^Metros$", "Metros", v, ignore.case = FALSE)  # 표기 통일
+  v
+}
+
+# 4×4로 정렬/보정(누락은 0으로)
+reindex_4x4 <- function(X, lev = lev4_std){
+  stopifnot(is.matrix(X))
+  storage.mode(X) <- "numeric"
+  rownames(X) <- normalize_names(rownames(X))
+  colnames(X) <- normalize_names(colnames(X))
+  M <- matrix(0, nrow=length(lev), ncol=length(lev), dimnames=list(lev, lev))
+  common_r <- intersect(rownames(X), lev)
+  common_c <- intersect(colnames(X), lev)
+  if (length(common_r) && length(common_c)) {
+    M[common_r, common_c] <- X[common_r, common_c, drop=FALSE]
+  }
+  M
+}
+
+# 지표 계산 함수(국내 4×4용)
+compute_internal_mobility <- function(X4){
+  X <- reindex_4x4(X4)
+  K <- nrow(X); N <- sum(X)
+  rsum <- rowSums(X); csum <- colSums(X)
+  eps <- 1e-12
+  
+  # A. 전체 수준
+  stay_rate <- sum(diag(X)) / N
+  gmi       <- 1 - stay_rate
+  P_row     <- sweep(X, 1, pmax(rsum,1), "/")
+  shor_M    <- (K - sum(diag(P_row), na.rm=TRUE)) / (K - 1)
+  
+  # E. 전반 연관 강도
+  chi <- suppressWarnings(chisq.test(X, correct = FALSE))
+  cramer_v <- as.numeric(sqrt(chi$statistic / (N * (min(dim(X)) - 1))))
+  
+  # B. 지역별 균형/효율
+  net_abs <- csum - rsum
+  mei     <- abs(net_abs) / pmax(csum + rsum, 1)
+  stay_by_origin <- diag(X) / pmax(rsum,1)
+  
+  # C. 쌍방 비대칭
+  asy <- matrix(0, K, K, dimnames = dimnames(X))
+  for (i in seq_len(K)) for (j in seq_len(K)) {
+    den <- X[i,j] + X[j,i]
+    asy[i,j] <- if (den > 0) (X[i,j] - X[j,i]) / den else 0
+  }
+  
+  # D. 구성/다양성
+  E <- outer(rsum, csum) / N
+  lift  <- X / pmax(E, eps)
+  resid <- (X - E) / sqrt(pmax(E, eps))
+  
+  entropy_i    <- rowSums(-P_row * log(pmax(P_row, eps)), na.rm=TRUE)
+  eff_dest_exp <- exp(entropy_i)
+  hhi_i        <- rowSums(P_row^2, na.rm=TRUE)
+  eff_dest_hhi <- 1 / pmax(hhi_i, eps)
+  
+  pi_overall <- rsum / N
+  P_col <- sweep(X, 2, pmax(csum,1), "/")
+  KL_col <- colSums(P_col * log(pmax(P_col, eps) /
+                                  matrix(pi_overall, nrow=K, ncol=K, byrow=FALSE)), na.rm=TRUE)
+  
+  origin_summary <- data.frame(
+    origin           = rownames(X),
+    births           = as.numeric(rsum),
+    stay_rate_origin = as.numeric(stay_by_origin),
+    eff_dest_exp     = as.numeric(eff_dest_exp),
+    eff_dest_hhi     = as.numeric(eff_dest_hhi),
+    row.names = NULL
+  )
+  
+  destination_summary <- data.frame(
+    destination = colnames(X),
+    residents   = as.numeric(csum),
+    net_abs     = as.numeric(net_abs),
+    mei         = as.numeric(mei),
+    KL_from_nat = as.numeric(KL_col),
+    row.names = NULL
+  )
+  
+  scalars <- c(N=N,
+               stay_rate=stay_rate,
+               gmi=gmi,
+               shorrocks_M=shor_M,
+               cramers_v=cramer_v)
+  
+  list(matrix=X,
+       scalars=scalars,
+       origin_summary=origin_summary,
+       destination_summary=destination_summary,
+       asymmetry=asy,
+       lift=lift,
+       pearson_residual=resid)
+}
+
+## ====== 1) 환경의 matYYYY / matYYYYm / matYYYYf 자동 처리 ======
+objs <- ls(pattern = "^mat\\d{4}([mf])?$")
+
+parse_tag <- function(nm){
+  year <- as.integer(sub("^mat(\\d{4}).*$","\\1", nm))
+  sex  <- if (grepl("m$", nm)) "Male" else if (grepl("f$", nm)) "Female" else "All"
+  data.frame(name=nm, year=year, sex=sex, stringsAsFactors = FALSE)
+}
+meta <- do.call(rbind, lapply(objs, parse_tag))
+meta <- meta[order(meta$year, match(meta$sex, c("All","Male","Female"))), ]
+
+scalars_all <- list(); origin_all <- list(); dest_all <- list()
+lift_all <- list(); resid_all <- list()
+
+for (k in seq_len(nrow(meta))) {
+  nm   <- meta$name[k]
+  yr   <- meta$year[k]
+  sex  <- meta$sex[k]
+  Xobj <- get(nm, envir = .GlobalEnv)
+  
+  res <- compute_internal_mobility(Xobj)
+  
+  scalars_all[[nm]] <- data.frame(year=yr, sex=sex, t(res$scalars), row.names = NULL)
+  
+  origin_all[[nm]] <- transform(res$origin_summary, year=yr, sex=sex) |>
+    (\(d) d[, c("year","sex","origin","births","stay_rate_origin","eff_dest_exp","eff_dest_hhi")])()
+  
+  dest_all[[nm]] <- transform(res$destination_summary, year=yr, sex=sex) |>
+    (\(d) d[, c("year","sex","destination","residents","net_abs","mei","KL_from_nat")])()
+  
+  L <- res$lift
+  lift_all[[nm]] <- data.frame(
+    year=yr, sex=sex,
+    origin=rownames(L)[row(L)],
+    destination=colnames(L)[col(L)],
+    lift=as.numeric(L)
+  )
+  
+  R <- res$pearson_residual
+  resid_all[[nm]] <- data.frame(
+    year=yr, sex=sex,
+    origin=rownames(R)[row(R)],
+    destination=colnames(R)[col(R)],
+    residual=as.numeric(R)
+  )
+}
+
+df_scalars <- do.call(rbind, scalars_all)
+df_origin  <- do.call(rbind, origin_all)
+df_dest    <- do.call(rbind, dest_all)
+df_lift    <- do.call(rbind, lift_all)
+df_resid   <- do.call(rbind, resid_all)
+
+# 보기 좋게 반올림(선택)
+df_scalars <- transform(df_scalars,
+                        stay_rate=round(stay_rate,4),
+                        gmi=round(gmi,4),
+                        shorrocks_M=round(shorrocks_M,4),
+                        cramers_v=round(cramers_v,4))
+
+## ====== 2) 확인 예시 ======
+head(df_scalars)
+subset(df_origin, year==2020 & sex=="All")
+subset(df_dest,   year==2020 & sex=="All")
+subset(df_lift,   year==2020 & sex=="All" & origin=="Seoul")
+
+
+subset(df_scalars, sex == "All") 

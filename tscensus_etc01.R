@@ -9,7 +9,7 @@
 
 library(purrr)
 
-years <- c(1960, 1966, seq(1970, 2000, by = 5))
+years <- c(1960, 1966, seq(1970, 2020, by = 5))
 datasets <- paste0("ts", years)
 
 if (!dir.exists("data")) dir.create("data")

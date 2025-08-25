@@ -1,0 +1,4 @@
+G3;ERROR: ℹ In argument: `org_code1 = ifelse(...)`.
+Caused by error:
+! 객체 'res_code0'를 찾을 수 없습니다
+g

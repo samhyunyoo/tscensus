@@ -22,7 +22,7 @@ sidomap_res <- function(code){
     code == 22 ~ 'Daegu',
     code == 23 ~ 'Incheon',
     code == 24 ~ 'Gwangju',
-    code == 25 ~ 'Deajeon',
+    code == 25 ~ 'Daejeon',
     code == 26 ~ 'Ulsan',
     code == 29 ~ 'Sejong',
     code == 31 ~ 'Gyeonggi',
@@ -37,7 +37,7 @@ sidomap_res <- function(code){
     TRUE ~"NA"
   ) 
   factor(sido, 
-         levels = c('Seoul', 	'Busan', 	'Daegu', 	'Incheon', 	'Gwangju', 	'Deajeon', 	'Ulsan', 	'Sejong', 	'Gyeonggi', 	'Gangwon', 	'Chungbuk', 	'Chungnam', 	'Jeonbuk', 	'Jeonnam', 	'Gyeongbuk', 	'Gyeongnam', 	'Jeju' 
+         levels = c('Seoul', 	'Busan', 	'Daegu', 	'Incheon', 	'Gwangju', 	'Daejeon', 	'Ulsan', 	'Sejong', 	'Gyeonggi', 	'Gangwon', 	'Chungbuk', 	'Chungnam', 	'Jeonbuk', 	'Jeonnam', 	'Gyeongbuk', 	'Gyeongnam', 	'Jeju' 
          ))
 }
 
@@ -49,7 +49,7 @@ sidomap_org <- function(code){
     code == 22 ~ 'Daegu',
     code == 23 ~ 'Incheon',
     code == 24 ~ 'Gwangju',
-    code == 25 ~ 'Deajeon',
+    code == 25 ~ 'Daejeon',
     code == 26 ~ 'Ulsan',
     code == 29 ~ 'Sejong',
     code == 31 ~ 'Gyeonggi',
@@ -61,11 +61,11 @@ sidomap_org <- function(code){
     code == 37 ~ 'Gyeongbuk',
     code == 38 ~ 'Gyeongnam',
     code == 39 ~ 'Jeju',
-    code >= 40 ~ 'Aborad', 
+    code >= 40 ~ 'Abroad', 
     TRUE ~"NA"
   ) 
   factor(sido, 
-         levels = c('Seoul', 	'Busan', 	'Daegu', 	'Incheon', 	'Gwangju', 	'Deajeon', 	'Ulsan', 	'Sejong', 	'Gyeonggi', 	'Gangwon', 	'Chungbuk', 	'Chungnam', 	'Jeonbuk', 	'Jeonnam', 	'Gyeongbuk', 	'Gyeongnam', 	'Jeju', 	'Aborad', 'NA' 
+         levels = c('Seoul', 	'Busan', 	'Daegu', 	'Incheon', 	'Gwangju', 	'Daejeon', 	'Ulsan', 	'Sejong', 	'Gyeonggi', 	'Gangwon', 	'Chungbuk', 	'Chungnam', 	'Jeonbuk', 	'Jeonnam', 	'Gyeongbuk', 	'Gyeongnam', 	'Jeju', 	'Abroad', 'NA' 
 ))
 }
 
@@ -74,12 +74,12 @@ regionmap_res <- function(code){
   region <- case_when(
     code == 11 ~ "Seoul", 
     code %in% c(23, 31) ~ "Rest Capital", 
-    code %in% c(21, 22, 24, 25, 26, 29) ~ "Metro", 
+    code %in% c(21, 22, 24, 25, 26, 29) ~ "Metros", 
     code %in% c(32, 33, 34, 35, 36, 37, 38, 39) ~ "Provinces", 
     TRUE ~ "NA") 
   factor(
     region, 
-    levels = c("Seoul", "Rest Capital", "Metro","Provinces")
+    levels = c("Seoul", "Rest Capital", "Metros","Provinces")
   )
 }
 
@@ -88,13 +88,13 @@ regionmap_org <- function(code){
   region <- case_when(
   code == 11 ~ "Seoul", 
   code %in% c(23, 31) ~ "Rest Capital", 
-  code %in% c(21, 22, 24, 25, 26, 29) ~ "Metro", 
+  code %in% c(21, 22, 24, 25, 26, 29) ~ "Metros", 
   code %in% c(32, 33, 34, 35, 36, 37, 38, 39) ~ "Provinces", 
   code >= 40 ~ "Abroad", 
   TRUE ~ "NA") 
   factor(
     region, 
-    levels = c("Seoul", "Rest Capital", "Metro","Provinces", "Abroad", "NA")
+    levels = c("Seoul", "Rest Capital", "Metros","Provinces", "Abroad", "NA")
   )
 }
 
@@ -169,8 +169,8 @@ ts1995 <- tscensus1995 |>
 
 pop1995 <- ts1995 |> 
   group_by(agegr, sex, res_admin, org_admin, res_region5, org_region5) |> 
-  summarise(pop_wighted = sum(wgt, na.rm = TRUE), .groups = "drop") |> 
-  mutate(pop_signed = ifelse(sex == "Male", -pop_wighted,  pop_wighted))
+  summarise(pop_weighted = sum(wgt, na.rm = TRUE), .groups = "drop") |> 
+  mutate(pop_signed = ifelse(sex == "Male", -pop_weighted,  pop_weighted))
 
 # color palette
 library(colorspace)

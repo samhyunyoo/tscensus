@@ -1,0 +1,173 @@
+################################################################################
+#
+# Data Cleaning
+#
+#
+#
+################################################################################
+
+library(tidyverse)
+library(scales)
+library(RColorBrewer)
+# library(ColorSpace)
+
+
+# 0. Defining categories ----------------------------------------------------
+
+## sidomap for the place of residence
+sidomap_res <- function(code){
+  sido <- case_when(
+    code == 11 ~ 'Seoul',
+    code == 21 ~ 'Busan',
+    code == 22 ~ 'Daegu',
+    code == 23 ~ 'Incheon',
+    code == 24 ~ 'Gwangju',
+    code == 25 ~ 'Deajeon',
+    code == 26 ~ 'Ulsan',
+    code == 29 ~ 'Sejong',
+    code == 31 ~ 'Gyeonggi',
+    code == 32 ~ 'Gangwon',
+    code == 33 ~ 'Chungbuk',
+    code == 34 ~ 'Chungnam',
+    code == 35 ~ 'Jeonbuk',
+    code == 36 ~ 'Jeonnam',
+    code == 37 ~ 'Gyeongbuk',
+    code == 38 ~ 'Gyeongnam',
+    code == 39 ~ 'Jeju', 
+    TRUE ~"NA"
+  ) 
+  factor(sido, 
+         levels = c('Seoul', 	'Busan', 	'Daegu', 	'Incheon', 	'Gwangju', 	'Deajeon', 	'Ulsan', 	'Sejong', 	'Gyeonggi', 	'Gangwon', 	'Chungbuk', 	'Chungnam', 	'Jeonbuk', 	'Jeonnam', 	'Gyeongbuk', 	'Gyeongnam', 	'Jeju' 
+         ))
+}
+
+## sidomap for the place of origin
+sidomap_org <- function(code){
+  sido <- case_when(
+    code == 11 ~ 'Seoul',
+    code == 21 ~ 'Busan',
+    code == 22 ~ 'Daegu',
+    code == 23 ~ 'Incheon',
+    code == 24 ~ 'Gwangju',
+    code == 25 ~ 'Deajeon',
+    code == 26 ~ 'Ulsan',
+    code == 29 ~ 'Sejong',
+    code == 31 ~ 'Gyeonggi',
+    code == 32 ~ 'Gangwon',
+    code == 33 ~ 'Chungbuk',
+    code == 34 ~ 'Chungnam',
+    code == 35 ~ 'Jeonbuk',
+    code == 36 ~ 'Jeonnam',
+    code == 37 ~ 'Gyeongbuk',
+    code == 38 ~ 'Gyeongnam',
+    code == 39 ~ 'Jeju',
+    code >= 40 ~ 'Aborad', 
+    TRUE ~"NA"
+  ) 
+  factor(sido, 
+         levels = c('Seoul', 	'Busan', 	'Daegu', 	'Incheon', 	'Gwangju', 	'Deajeon', 	'Ulsan', 	'Sejong', 	'Gyeonggi', 	'Gangwon', 	'Chungbuk', 	'Chungnam', 	'Jeonbuk', 	'Jeonnam', 	'Gyeongbuk', 	'Gyeongnam', 	'Jeju', 	'Aborad', 'NA' 
+))
+}
+
+## regionmap for the place of residence
+regionmap_res <- function(code){
+  region <- case_when(
+    code == 11 ~ "Seoul", 
+    code %in% c(23, 31) ~ "Rest Capital", 
+    code %in% c(21, 22, 24, 25, 26, 29) ~ "Metro", 
+    code %in% c(32, 33, 34, 35, 36, 37, 38, 39) ~ "Provinces", 
+    TRUE ~ "NA") 
+  factor(
+    region, 
+    levels = c("Seoul", "Rest Capital", "Metro","Provinces")
+  )
+}
+
+## regionmap for the place of origin
+regionmap_org <- function(code){
+  region <- case_when(
+  code == 11 ~ "Seoul", 
+  code %in% c(23, 31) ~ "Rest Capital", 
+  code %in% c(21, 22, 24, 25, 26, 29) ~ "Metro", 
+  code %in% c(32, 33, 34, 35, 36, 37, 38, 39) ~ "Provinces", 
+  code >= 40 ~ "Abroad", 
+  TRUE ~ "NA") 
+  factor(
+    region, 
+    levels = c("Seoul", "Rest Capital", "Metro","Provinces", "Abroad", "NA")
+  )
+}
+
+
+# 1. tscensus 2020 --------------------------------------------------------
+
+
+tscensus2020 <- readRDS("data/tscensus2020.rds")
+table(tscensus2020$V8, useNA = "ifany")
+ts2020 <- tscensus2020 |> 
+  mutate(
+  
+    # region codes 
+    res_code1 = as.numeric(V1), 
+    res_admin = sidomap_res(res_code1), 
+    res_region5 = regionmap_res(res_code1), 
+    
+    org_check = as.numeric(V16), 
+    org_code0 = as.numeric(V19), 
+    org_code1 = ifelse(org_check %in% c(1, 2), res_code1, 
+                       ifelse(org_check == 3, org_code0, 
+                              ifelse(org_check == 4, 40, NA))), 
+    
+    org_admin = sidomap_org(org_code1), 
+    org_region5 = regionmap_org(org_code1),
+    
+    # demographics
+    age = as.numeric(V8), 
+    agegr = cut(
+      age, 
+      breaks = c(seq(0, 85, by = 5), Inf), 
+      right = FALSE, 
+      labels = c(
+        paste(seq(0, 84, by = 5), seq(4, 84, by = 5), sep = "-"), "85+")
+      ), 
+    
+    sex = case_when(
+      V7 %in% c(1, "1") ~ "Male", 
+      V7 %in% c(2, "2") ~ "Female", 
+      TRUE ~ as.character(V7)
+    ), 
+    
+    edua = as.numeric(V10), 
+    edub = as.numeric(V11),
+    
+    educ = case_when(
+      edua < 4 | (edua == 4 & edub != 1) ~ "<HS", 
+      edua == 4 & edub == 1 ~ "HS", 
+      edua == 5 | (edua == 6 & edub !=1) ~ "SomeCol", 
+      (edua == 6 & edub ==1) | edua %in% c(7, 8) ~ "BA+"
+    ), 
+    educ = factor(educ, levels = c("<HS", "HS", "SomeCol", "BA+")), 
+  
+    mar = as.numeric(V44), 
+    agefm = as.numeric(V69), 
+
+    ceb_boy = as.numeric(V71), 
+    ceb_girl = as.numeric(V73), 
+    ceb = rowSums(across(c(ceb_boy, ceb_girl)), na.rm = TRUE), 
+    
+    expkid = as.numeric(V77), 
+    expnkids = as.numeric(V53), 
+    
+    wgt = as.numeric(V90), 
+    
+  )
+
+
+
+# 3. pop pyramid ----------------------------------------------------------
+
+
+pop2020 <- 
+
+
+summary(ts2020)
