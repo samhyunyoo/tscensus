@@ -8,19 +8,19 @@
 
 
 files <- c(
-  "C:/MySam/tscensus/tscensus_p01_ps2020.R",
-  "C:/MySam/tscensus/tscensus_p02_ps2015.R",
-  "C:/MySam/tscensus/tscensus_p03_ps2010.R",
-  "C:/MySam/tscensus/tscensus_p04_ps2005.R",
-  "C:/MySam/tscensus/tscensus_p05_ps2000.R",
-  "C:/MySam/tscensus/tscensus_p06_ps1995.R",
-  "C:/MySam/tscensus/tscensus_p07_ps1990.R",
-  "C:/MySam/tscensus/tscensus_p08_ps1985.R",
-  "C:/MySam/tscensus/tscensus_p09_ps1980.R",
-  "C:/MySam/tscensus/tscensus_p10_ps1975.R",
-  "C:/MySam/tscensus/tscensus_p11_ps1970.R",
-  "C:/MySam/tscensus/tscensus_p12_ps1966.R",
-  "C:/MySam/tscensus/tscensus_p13_ps1960.R"
+  "tscensus_p01_ps2020.R",
+  "tscensus_p02_ps2015.R",
+  "tscensus_p03_ps2010.R",
+  "tscensus_p04_ps2005.R",
+  "tscensus_p05_ps2000.R",
+  "tscensus_p06_ps1995.R",
+  "tscensus_p07_ps1990.R",
+  "tscensus_p08_ps1985.R",
+  "tscensus_p09_ps1980.R",
+  "tscensus_p10_ps1975.R",
+  "tscensus_p11_ps1970.R",
+  "tscensus_p12_ps1966.R",
+  "tscensus_p13_ps1960.R"
 )
 
 # pXX 번호로 정렬(혹시 순서가 섞였을 경우 대비)

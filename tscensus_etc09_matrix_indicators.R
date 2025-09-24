@@ -177,3 +177,4 @@ subset(df_lift,   year==2020 & sex=="All" & origin=="Seoul")
 
 
 subset(df_scalars, sex == "All") 
+

@@ -197,3 +197,4 @@ combined3 <- (busan_org + busan_res) +
 combined3
 ## 4) 저장 (선택)
 ggsave("graphs/pmd_Seoul_origin_res_2020.png", combined, width = 10, height = 6, dpi = 300)
+

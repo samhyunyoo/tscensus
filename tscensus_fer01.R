@@ -16,7 +16,7 @@ fer2020 <- ts2020 |>
          "mar",         "agefm",       "agefmgr",     "ceb",         "expnkids",   
          "wgt") |> 
   mutate(year = 2020) |> 
-  filter(sex == "Female", age >= 45, age <= 49)
+  filter(sex == "Female", age >= 15)
 
 fer2015 <- ts2015 |>
   select("res_code1",   "res_admin",   "res_region5", "org_check",   "org_code0",   "org_code1",  
@@ -24,7 +24,7 @@ fer2015 <- ts2015 |>
          "mar",         "agefm",       "agefmgr",     "ceb",         "expnkids",   
          "wgt") |> 
   mutate(year = 2015) |> 
-  filter(sex == "Female", age >= 45, age <= 49)
+  filter(sex == "Female", age >= 15)
 
 fer2010 <- ts2010 |>
   select("res_code1",   "res_admin",   "res_region5", "org_check",   "org_code0",   "org_code1",  
@@ -32,7 +32,7 @@ fer2010 <- ts2010 |>
          "mar",         "agefm",       "agefmgr",     "ceb",         "expnkids",   
          "wgt") |> 
   mutate(year = 2010) |> 
-  filter(sex == "Female", age >= 45, age <= 49)
+  filter(sex == "Female", age >= 15)
 
 fer2000 <- ts2000 |>
   select("res_code1",   "res_admin",   "res_region5", "org_check",   "org_code0",   "org_code1",  
@@ -40,7 +40,7 @@ fer2000 <- ts2000 |>
          "mar",         "ceb",            
          "wgt") |> 
   mutate(year = 2000) |> 
-  filter(sex == "Female", age >= 45, age <= 54)
+  filter(sex == "Female", age >= 15)
 
 fer1990 <- ts1990 |>
   select("res_code1",   "res_admin",   "res_region5", "org_check",   "org_code0",   "org_code1",  
@@ -48,11 +48,22 @@ fer1990 <- ts1990 |>
          "mar",         "agefm",       "agefmgr",     "ceb",            
          "wgt") |> 
   mutate(year = 1990) |> 
-  filter(sex == "Female", age >= 45, age <= 54)
+  filter(sex == "Female", age >= 15)
 
-
-ferall <- bind_rows(fer2020, fer2015, fer2010, fer2000, fer1990) |> 
+## This is to analyze period measures of fertility 
+ceball <- bind_rows(fer2020, fer2015, fer2010, fer2000, fer1990) |> 
   filter(sex == "Female")
+saveRDS(ceball, "data/ceball.rds")
+
+
+## This is to study completed fertility (CF :cohort persepective)
+ferall <- bind_rows(fer2020, fer2015, fer2010, fer2000, fer1990) |> 
+  filter() %>% 
+  mutate(CF_flag = ifelse(year %in% c(2020, 2015, 2010) & age >=45 & age <=49, 1, 
+                          ifelse(year %in% c(2000, 1990) & age >=45 & age <=54, 1, 0)))  |> 
+  filter(CF_flag ==1, sex == "Female")
+saveRDS(ferall, "data/ferall")           
+           
 
 
 
@@ -64,7 +75,7 @@ myfer <- ferall |>
   mutate(cohort1 = floor((year - age)/5)*5, 
          cohort2 = cohort1 - 4, 
          cohort = paste(cohort2, cohort1, sep = "-")) 
-
+saveRDS(myfer, "data/myfer.rds")
 
 a <- myfer |> 
   filter(cohort == "1956-1960")
@@ -94,9 +105,6 @@ fer_res <- myfer |>
 fer_org <- myfer |> 
   group_by(cohort, org_region5) |> 
   summarise(cohortfer = sum(ceb * wgt, na.rm = TRUE)/sum(wgt, na.rm = TRUE), .groups = "drop")
-
-fer_org
-View(fer_org)
 
 fer_res_org <- myfer |> 
   group_by(cohort, res_region5, org_region5) |> 
@@ -189,3 +197,6 @@ fer_res_org |> filter(org_region5 != "Abroad") |>
   guides(color = guide_legend(nrow = 1, byrow = TRUE))
 
 ggsave("graphs/trend_fer_org_x_res_1931-1975.png", width = 10, height = 6, scale = 0.8)
+
+
+

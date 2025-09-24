@@ -24,7 +24,7 @@ region_levels17 <- c(
   "Gyeonggi","Gangwon","Chungbuk","Chungnam","Jeonbuk","Jeonnam","Gyeongbuk","Gyeongnam","Jeju"
 )
 # 범례/팔레트용 전체 레벨(Abroad, NA 포함)
-region_levels_all <- c(region_levels17, "Abroad", "NA")
+region_levels_all <- c(region_levels17, "Abroad")
 
 # 1) 팔레트에 이름 부여 (팔레트 길이는 18개 이상이라고 가정; 마지막은 NA 전용 회색 추가)
 stopifnot(length(pal_admin) >= length(region_levels17) + 1)
