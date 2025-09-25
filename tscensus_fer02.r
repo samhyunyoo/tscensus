@@ -21,10 +21,12 @@ str(ceball)
 myceb <- ceball |> 
   filter(age < 50)
 
+table(myceb$ceb, useNA = "ifany")
+table(df_use$ceb, useNA = "ifany")
 
-myceb |> filter(is.na(org_region5))
+test <- myceb |> filter(is.na(ceb))
 
-
+table(test$mar, test$ceb, useNA="ifany")
 
 # 2. Chck asfr  ---------------------------------------------------
 
@@ -47,21 +49,23 @@ asfr_res_org <- myceb |>
   group_by(year, res_region5, org_region5, age) |> 
   summarise(asfr = sum(ceb * wgt, na.rm = TRUE)/sum(wgt, na.rm = TRUE), .groups = "drop")
 
-
+asfr_res |> filter(year ==1990, age ==49)
 asfr_res |> 
   ggplot(aes(x = age, y = asfr, 
              group = res_region5, color = res_region5, linetype = res_region5)) +
-  geom_line() +
+  geom_line(size = 1) +
+  geom_vline(xintercept = c(30, 35), color = "gray", linetype = "dashed")+
+  
   scale_color_manual(values = pal_comp) +
-  scale_y_continuous(limits = c(0, 4.5)) +
+  scale_y_continuous(limits = c(0, 4.3)) +
   labs(x = "Age", y = "Mean number of children-ever-born", 
        color = "Place of residence", 
        linetype = "Place of residence") +
   theme_minimal() +
   theme(
     legend.position        = "inside",              # ← 새 방식
-    legend.position.inside = c(0.98, 0.3),         # 패널 내부 좌표 (오른쪽-위)
-    legend.justification   = c(1, 1),               # 범례 기준점을 오른쪽-위로
+    legend.position.inside = c(0.98, 0.02),         # 패널 내부 좌표 (오른쪽-아래)
+    legend.justification   = c(1, 0),               # 범례 기준점을 오른쪽-아래로
     legend.background      = element_rect(fill = scales::alpha("white", 0.7), color = NA),
     legend.key             = element_blank()
   ) +
@@ -76,17 +80,19 @@ asfr_org |>
   mutate(year = as.factor(year)) |> 
   ggplot(aes(x = age, y = asfr, 
              group = org_region5, color = org_region5, linetype = org_region5)) +
-  geom_line() +
+  geom_line(size = 1) +
+  geom_vline(xintercept = c(30, 35), color = "gray", linetype = "dashed")+
+  
   scale_color_manual(values = pal_comp) +
-  scale_y_continuous(limits = c(0, 4.5)) +
+  scale_y_continuous(limits = c(0, 4.3)) +
   labs(x = "Age", y = "Mean number of children-ever-born", 
        color = "Place of birth", 
        linetype = "Place of birth") +
   theme_minimal() +
   theme(
     legend.position        = "inside",              # ← 새 방식
-    legend.position.inside = c(0.98, 0.3),         # 패널 내부 좌표 (오른쪽-위)
-    legend.justification   = c(1, 1),               # 범례 기준점을 오른쪽-위로
+    legend.position.inside = c(0.98, 0.02),         # 패널 내부 좌표 (오른쪽-아래)
+    legend.justification   = c(1, 0),               # 범례 기준점을 오른쪽-아래로
     legend.background      = element_rect(fill = scales::alpha("white", 0.7), color = NA),
     legend.key             = element_blank()
   ) +
@@ -116,11 +122,11 @@ asfr_res |>
   ggplot(aes(x = age, y = asfr, 
              color = res_region5,
              linetype = year)) +
-  geom_line() +
+  geom_line(size = 1) +
   geom_vline(xintercept = c(30, 35), color = "gray", linetype = "dashed")+
   scale_color_manual(values = pal_comp, guide = "none") +
   scale_linetype_manual(values = c(5:1)) +
-  scale_y_continuous(limits = c(0, 4.5)) +
+  scale_y_continuous(limits = c(0, 4.3)) +
   labs(x = "Age", y = "Mean number of children-ever-born", 
        color = "Place of residence", 
        linetype = "Year") +
@@ -144,11 +150,11 @@ asfr_org |>
   ggplot(aes(x = age, y = asfr, 
              color = org_region5,
              linetype = year)) +
-  geom_line() +
+  geom_line(size = 1) +
   geom_vline(xintercept = c(30, 35), color = "gray", linetype = "dashed")+
   scale_color_manual(values = pal_comp, guide = "none") +
   scale_linetype_manual(values = c(5:1)) +
-  scale_y_continuous(limits = c(0, 4.5)) +
+  scale_y_continuous(limits = c(0, 4.3)) +
   labs(x = "Age", y = "Mean number of children-ever-born", 
        color = "Place of birth", 
        linetype = "Year") +
@@ -171,11 +177,11 @@ asfr_res_org |>
   ggplot(aes(x = age, y = asfr, 
              color = res_region5,
              linetype = year)) +
-  geom_line() +
+  geom_line(size = 0.7) +
   geom_vline(xintercept = c(30, 35), color = "gray", linetype = "dashed")+
   scale_color_manual(values = pal_comp, guide = "none") +
   scale_linetype_manual(values = c(5:1)) +
-  scale_y_continuous(limits = c(0, 4.5)) +
+  scale_y_continuous(limits = c(0, 4.3)) +
   labs(x = "Age", y = "Mean number of children-ever-born", 
        color = "Place of birth", 
        linetype = "Year") +
@@ -189,7 +195,7 @@ asfr_res_org |>
     legend.background      = element_rect(fill = scales::alpha("white", 0.7), color = NA),
     legend.key             = element_blank()
   ) +
-  facet_grid(res_region5~org_region5)
+  facet_grid(org_region5~res_region5)
 
 ggsave("graphs/trend_ceb_by_res_org_period_1990-2020.png", width = 10, height = 6, scale = 0.7)
 
@@ -218,6 +224,7 @@ df_reg <- myceb |>
   fct_agefmgr = factor(fct_agefmgr), 
   fct_year = factor(year)
   )
+table(df_reg$mar)
 
 
 # 가중치 포함 요약
@@ -291,51 +298,65 @@ performance::check_overdispersion(model1)
 
 
 
+# 6. Modelling --------------------------------------------------
 
-m_cmp2 <- glm.cmp(ceb ~ agegr + fct_agefmgr + fct_educ + org_region5 + res_region5 + fct_year, 
-                  data = df_reg, weights = wgt/1000)
-summary(m_cmp2)
+library(sandwich)
+library(lmtest)
+# library(modelsummary)  # 표 만들 때 유용(선택)
+table(df_reg$year, df_reg$educ)
+table(df_reg$year, df_reg$mar)
+table(df_reg$year, df_reg$ceb)
+table(df_reg$year, df_reg$org_region5)
+table(df_reg$year, df_reg$res_region5)
+table(df_reg$year, df_reg$agefmgr)
 
-m_cmp2 <- glm.cmp(ceb ~ agegr + fct_agefmgr + fct_educ + org_region5 + res_region5 + org_region5*res_region5 +fct_year, 
-              data = df_reg, weights = wgt/1000)
-summary(m_cmp3)
+
+df_use  <- df_reg |> 
+  mutate(cohort1 = floor((year - age)/5)*5, 
+                           cohort2 = cohort1 - 4, 
+                           cohort = paste(cohort2, cohort1, sep = "-")) |> 
+  select(-cohort1, -cohort2)
+
+# 수치 안정화를 위해 각 연도별 가중치를 평균 1로
+df_use <- df_use |> 
+  group_by(year) |> 
+  mutate(w_norm = wgt / mean(wgt, na.rm = TRUE)) |> 
+  ungroup()
+# w_norm  <- df_use$wgt / mean(df_use$wgt, na.rm = TRUE)  # 수치 안정화를 위해 평균 1로
+# df_use$w_norm <- w_norm
+
+table(df_reg$year, df_reg$mar)
+table(df_use$year, df_use$mar)
 
 
-# install.packages("VGAM")
-df_use <- na.omit(df_reg)
-w <- df_use$wgt
-w_norm <- w / mean(w, na.rm = TRUE)  # 평균 1로 정규화
+saveRDS(df_use, "data/df_use.rds")
 
-# vglm 시도 시
-library(VGAM)
-m_gp0 <- vglm(
-  ceb ~ agegr + fct_mar + fct_educ + org_region5 + res_region5 + fct_year,
-  family = genpoisson0(),     # genpoisson() 없으면 genpoisson0()
-  data = df_use,
-  weights = w_norm,
-  control = vglm.control(maxit = 60, trace = TRUE)
+
+form <- ceb ~ agegr + fct_mar + fct_educ + org_region5 + res_region5 + org_region5*res_region5+ fct_year
+
+# 1) OLS (보조)
+m_ols <- lm(form, data = df_use, weights = w_norm)
+coeftest(m_ols, vcov. = vcovHC(m_ols, type = "HC3"))
+
+# 2) PPML (포아송 + 강건SE) — 메인 후보
+m_ppml <- glm(form, family = poisson(link = "log"), data = df_use, weights = w_norm)
+coeftest(m_ppml, vcov. = vcovHC(m_ppml, type = "HC3"))
+irr_ppml <- exp(coef(m_ppml))  # IRR
+
+# 3) quasi-Poisson — 메인 후보(대체)
+m_qp <- glm(form, family = quasipoisson(link = "log"), data = df_use, weights = w_norm)
+coeftest(m_qp, vcov. = vcovHC(m_qp, type = "HC3"))
+disp_qp <- summary(m_qp)$dispersion  # φ < 1 이면 과소산포
+irr_qp  <- exp(coef(m_qp))
+
+# (선택) 한 표로 정리
+modelsummary::msummary(
+  list("OLS (robust SE)" = m_ols,
+       "PPML (robust SE)" = m_ppml,
+       "Quasi-Poisson (robust SE)" = m_qp),
+  vcov = list(vcovHC, vcovHC, vcovHC),
+  vcov_args = list(list(type="HC3"), list(type="HC3"), list(type="HC3")),
+  exponentiate = c(FALSE, TRUE, TRUE),  # PPML/Quasi-Poisson을 IRR로
+  gof_omit = 'DF|Deviance'
 )
-summary(m_gp0)
-
-
-
-# install.packages("COMPoissonReg")
-library(COMPoissonReg)
-m_cmp <- glm.cmp(
-  ceb ~ agegr + fct_mar + fct_educ + org_region5 + res_region5 + fct_year,
-  data = df_use,
-  weights = w_norm
-)
-summary(m_cmp)     # ν(또는 nu) > 1이면 과소산포
-
-
-
-
-# install.packages("gamlss")
-library(gamlss)
-
-m_dp <- gamlss(ceb ~ agegr + fct_mar + fct_educ +
-                 org_region5 + res_region5 + fct_year,
-               family = DPO, data = df_reg |> na.omit(df_reg), weights = wgt/1000)
-summary(m_dp)
 
