@@ -9,14 +9,25 @@
 
 
 
-
-
-
 library(dplyr)
 library(ggplot2)
 library(patchwork)
 library(scales)
 library(forcats)
+library(tidyverse)
+library(RColorBrewer)
+library(colorspace)
+
+
+pal_admin <- colorRampPalette(brewer.pal(12, "Paired"))(19)
+
+pal_admin[8]  <- desaturate(pal_admin[8], amount = 1)
+pal_admin[3]  <- darken(pal_admin[3], amount = 0.2)
+pal_admin[17] <- darken(pal_admin[17], amount = 0.3)
+
+pal_comp <- c("#e31a1c", "#ff7f00", "#1f78b4", "#33a02c", "#ba39a0", "#bebebe")
+
+
 
 # 0) 시도 레벨(주신 case_when 순서 그대로) --------------------------
 region_levels17 <- c(
@@ -31,6 +42,8 @@ stopifnot(length(pal_admin) >= length(region_levels17) + 1)
 pal_named <- setNames(c(pal_admin[seq_len(length(region_levels17) + 1)], "#9E9E9E"),
                       region_levels_all)
 #  이때 pal_admin의 앞 18개는: 17개 시도 + Abroad 에 매칭됩니다. "NA"는 회색으로 고정.
+
+pop2020 <- readRDS("data/pop2020.rds")
 
 # 2) 변수 팩터화(순서 고정) ------------------------------------------
 pop2020 <- pop2020 %>%
