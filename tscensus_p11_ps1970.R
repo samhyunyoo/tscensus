@@ -113,7 +113,7 @@ ts1970 <- tscensus1970 |>
     
     org_check = as.numeric(V21),
     org_code0 = as.numeric(V22),
-    org_code1 = ifelse(org_check %in% c(1) & !is.na(res_code0), res_code0,
+    org_code1 = ifelse(org_check %in% c(1) & !is.na(res_code1), res_code1,
                        ifelse(org_check %in% c(1), org_code0, NA)),
 
     org_admin = sidomap_org(org_code1),

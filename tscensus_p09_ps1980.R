@@ -169,7 +169,7 @@ ts1980 <- tscensus1980 |>
 # 3. pop pyramid ----------------------------------------------------------
 
 pop1980 <- ts1980 |> 
-  group_by(agegr, sex, res_admin, org_admin, res_region5, org_region5) |> 
+  group_by(agegr, sex, res_admin, res_region5) |> 
   summarise(pop_weighted = sum(wgt, na.rm = TRUE), .groups = "drop") |> 
   mutate(pop_signed = ifelse(sex == "Male", -pop_weighted,  pop_weighted))
 
