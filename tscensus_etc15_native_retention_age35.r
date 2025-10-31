@@ -39,16 +39,17 @@ pop2005 <- readRDS("data/pop2005.rds")
 pop2010 <- readRDS("data/pop2010.rds")
 pop2015 <- readRDS("data/pop2015.rds")
 
-library(dplyr)
-library(tidyr)
-library(purrr)
-library(stringr)
-library(dplyr)
-library(tidyr)
-library(purrr)
-library(stringr)
 
-calc_retention <- function(year) {
+
+
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(purrr)
+library(ggplot2)
+
+# --- (1) 함수 정의 ---
+calc_retention_youth <- function(year) {
   file_path <- paste0("data/pop", year, ".rds")
   pop <- readRDS(file_path)
   
@@ -60,22 +61,35 @@ calc_retention <- function(year) {
   
   pop_all <- bind_rows(pop, pop_total)
   
-  # --- (2) retention 계산 ---
-  retention <- pop_all |>
+  # --- (2) 연령 상한 35+으로 제한 (35세 초과는 모두 35+로 통합) ---
+  pop_all <- pop_all %>%
+    mutate(
+      age_lower = as.numeric(str_extract(agegr, "^[0-9]+")),
+      agegr = if_else(age_lower >= 35, "35+", agegr)
+    ) %>%
+    group_by(org_admin, res_admin, sex, agegr) %>%
+    summarise(pop_weighted = sum(pop_weighted, na.rm = TRUE), .groups = "drop")
+  
+  # --- (3) retention 계산 ---
+  retention <- pop_all %>%
     mutate(
       org_admin = as.character(org_admin),
       res_admin = as.character(res_admin),
       native = ifelse(org_admin == res_admin, "native", "none")
-    ) |>
-    group_by(org_admin, sex, agegr, native) |>
-    summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") |>
-    pivot_wider(names_from = native, values_from = pop, values_fill = 0) |>
-    mutate(retention = native / (native + none))
+    ) %>%
+    group_by(org_admin, sex, agegr, native) %>%
+    summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(names_from = native, values_from = pop, values_fill = 0) %>%
+    mutate(
+      retention = native / (native + none),
+      year = year
+    )
   
-  # --- (3) table 계산 (평활화 없음, qx 클리핑 포함) ---
+  # --- (4) 생명표 계산 (35+까지만 포함) ---
   table <- retention %>%
     group_by(org_admin, sex) %>%
     arrange(as.numeric(str_extract(agegr, "^[0-9]+")), .by_group = TRUE) %>%
+    filter(as.numeric(str_extract(agegr, "^[0-9]+")) <= 35 | agegr == "35+") %>%
     mutate(
       Sx = retention,
       Sx = Sx / first(Sx),
@@ -83,23 +97,22 @@ calc_retention <- function(year) {
       qx = 1 - px,
       qx = if_else(is.na(qx), 0, qx),
       px = if_else(is.na(px), 1, px),
-      # --- qx를 0~1 사이로 제한 ---
       qx = pmin(pmax(qx, 1e-6), 1 - 1e-6),
       px = 1 - qx,
-      # --- 생명표 계산 ---
       lx = cumprod(c(1, head(px, -1))),
       dx = lx * qx,
       Lx = 5 * (lx - 0.5 * dx),
       Tx = rev(cumsum(rev(Lx))),
       ex = Tx / lx
     ) %>%
-    ungroup()
+    ungroup() %>%
+    mutate(year = year)
   
-  # --- (4) summary 계산 ---
+  # --- (5) summary 계산 ---
   summary <- table %>%
     group_by(org_admin, sex) %>%
     summarise(
-      PPRR = tail(lx, 1),
+      PPNYR = tail(lx, 1),
       e0 = ex[which.min(as.numeric(str_extract(as.character(agegr), "^[0-9]+")))],
       .groups = "drop"
     ) %>%
@@ -113,89 +126,91 @@ calc_retention <- function(year) {
   ))
 }
 
-# --- (5) 반복 수행 ---
+# --- (6) 반복 수행 ---
 years <- c(2000, 2010, 2015, 2020)
-results <- map(years, calc_retention)
+results_youth <- map(years, calc_retention_youth)
 
-# --- (6) 결과 병합 ---
-# 각 결과 병합 + 연도 부여
-retention_all <- map_dfr(results, "retention", .id = "index") |>
-  mutate(year = years[as.integer(index)]) |>
-  select(-index) |>
+# --- (7) 결과 병합 ---
+retention_youth_all <- map_dfr(results_youth, "retention", .id = "index") %>%
+  mutate(year = years[as.integer(index)]) %>%
+  select(-index) %>%
   filter(org_admin != "Abroad")
 
-table_all <- map_dfr(results, "table", .id = "index") |>
-  mutate(year = years[as.integer(index)]) |>
-  select(-index) |>
+table_youth_all <- map_dfr(results_youth, "table", .id = "index") %>%
+  mutate(year = years[as.integer(index)]) %>%
+  select(-index) %>%
   filter(org_admin != "Abroad")
 
-summary_all <- map_dfr(results, "summary", .id = "index") |>
-  mutate(year = years[as.integer(index)]) |>
-  select(-index) |>
+summary_youth_all <- map_dfr(results_youth, "summary", .id = "index") %>%
+  mutate(year = years[as.integer(index)]) %>%
+  select(-index) %>%
   filter(org_admin != "Abroad")
 
-# wide 형태 요약표
-table_all_wide <- summary_all %>%
-  select(year, org_admin, sex, PPRR) %>%
-  pivot_wider(names_from = sex, values_from = PPRR)
 
-table_all_wide
+# --- (8) Wide 형태 요약표 ---
+table_all_wide_youth <- summary_youth_all %>%
+  select(year, org_admin, sex, PPNYR) %>%
+  pivot_wider(names_from = sex, values_from = PPNYR)
+
+table_all_wide_youth
 
 
-
-# 요약 진단용 표 만들기
-
-diagnosis_table <- summary_all %>%
-  # PPRR 테이블과 원자료의 인구수 결합
+# --- (9) 요약 진단용 표 만들기 ---
+diagnosis_table_youth <- summary_youth_all %>%
   left_join(
-    retention_all %>%
+    retention_youth_all %>%
       group_by(year, org_admin, sex) %>%
       summarise(total_pop = sum(native + none, na.rm = TRUE), .groups = "drop"),
     by = c("year", "org_admin", "sex")
   ) %>%
-  # wide 형태로 전환
-  select(year, org_admin, sex, PPRR, total_pop) %>%
+  select(year, org_admin, sex, PPNYR, total_pop) %>%
   pivot_wider(
     names_from = sex,
-    values_from = c(PPRR, total_pop),
+    values_from = c(PPNYR, total_pop),
     names_sep = "_"
   ) %>%
   mutate(
-    # 인구비와 단순 평균 계산
     pop_ratio_MF = total_pop_Male / total_pop_Female,
-    PPRR_mean = (PPRR_Male + PPRR_Female) / 2,
-    # 인구가중평균
-    PPRR_weighted = (PPRR_Male * total_pop_Male + PPRR_Female * total_pop_Female) /
+    PPNYR_mean = (PPNYR_Male + PPNYR_Female) / 2,
+    PPNYR_weighted = (PPNYR_Male * total_pop_Male + PPNYR_Female * total_pop_Female) /
       (total_pop_Male + total_pop_Female),
-    # Total이 남녀보다 높은지 여부
-    higher_than_both = PPRR_Total > pmax(PPRR_Male, PPRR_Female)
+    higher_than_both = PPNYR_Total > pmax(PPNYR_Male, PPNYR_Female)
   ) %>%
-  arrange(year, desc(PPRR_Total))
+  arrange(year, desc(PPNYR_Total))
 
-diagnosis_table
+diagnosis_table_youth
 
-table_all |> 
-  group_by(year, org_admin, sex) |> 
-  summarise(mean = mean(qx), 
-            max = max(qx), 
-            min = min(qx)) |> 
+
+# --- (10) qx 진단용 표 ---
+table_youth_all %>%
+  group_by(year, org_admin, sex) %>%
+  summarise(
+    mean_qx = mean(qx, na.rm = TRUE),
+    max_qx = max(qx, na.rm = TRUE),
+    min_qx = min(qx, na.rm = TRUE)
+  ) %>%
   view()
 
 
-
-# Test some graphs 
-table_all %>%
-  filter(year == 2000, sex == "Total", !is.na(org_admin), !(org_admin =="Abroad")) %>%
-  mutate(age_lower = as.numeric(sub("^(\\d+).*", "\\1", agegr))) %>%  # 연령 하한 추출
+# --- (11) 그래프 예시 ---
+table_youth_all %>%
+  filter(year == 2000, sex == "Total", !is.na(org_admin), !org_admin %in% c("Abroad", "NA")) %>%
+  mutate(age_lower = as.numeric(sub("^(\\d+).*", "\\1", agegr))) %>%
   ggplot(aes(x = age_lower, y = lx, group = org_admin, color = org_admin)) +
-  geom_line() +
-  geom_point() +
-  scale_x_continuous(breaks = seq(0, 80, 5)) +
-  labs(x = "Age group (lower bound)", y = "lx (retained population ratio)") +
-  theme_minimal()
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  scale_x_continuous(breaks = seq(0, 35, 5), limits = c(0, 35)) +
+  labs(
+    x = "Age group (lower bound)",
+    y = "lx (retained population ratio)",
+    title = "Youth Retention Curves by Region (PPNYR, ≤35)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
 
+# --- (12) 결과 저장 ---
+write.csv(table_youth_all, "data/table_youth_all.csv", row.names = FALSE)
 
-write.csv(table_all, "data/table_all.csv", row.names = FALSE)
 
 
 

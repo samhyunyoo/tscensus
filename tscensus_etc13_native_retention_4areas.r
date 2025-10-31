@@ -1,7 +1,7 @@
 
 ################################################################################
 #
-# Computing native retention rate
+# Computing native retention rate with four areas
 #
 # 
 #
@@ -48,13 +48,14 @@ library(tidyr)
 library(purrr)
 library(stringr)
 
-calc_retention <- function(year) {
+pop2020
+calc_retention_5area <- function(year) {
   file_path <- paste0("data/pop", year, ".rds")
   pop <- readRDS(file_path)
   
   # --- (1) Total 범주 추가 ---
   pop_total <- pop %>%
-    group_by(org_admin, res_admin, agegr) %>%
+    group_by(org_region5, res_region5, agegr) %>%
     summarise(pop_weighted = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
     mutate(sex = "Total")
   
@@ -63,18 +64,18 @@ calc_retention <- function(year) {
   # --- (2) retention 계산 ---
   retention <- pop_all |>
     mutate(
-      org_admin = as.character(org_admin),
-      res_admin = as.character(res_admin),
-      native = ifelse(org_admin == res_admin, "native", "none")
+      org_region5 = as.character(org_region5),
+      res_region5 = as.character(res_region5),
+      native = ifelse(org_region5 == res_region5, "native", "none")
     ) |>
-    group_by(org_admin, sex, agegr, native) |>
+    group_by(org_region5, sex, agegr, native) |>
     summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") |>
     pivot_wider(names_from = native, values_from = pop, values_fill = 0) |>
     mutate(retention = native / (native + none))
   
   # --- (3) table 계산 (평활화 없음, qx 클리핑 포함) ---
   table <- retention %>%
-    group_by(org_admin, sex) %>%
+    group_by(org_region5, sex) %>%
     arrange(as.numeric(str_extract(agegr, "^[0-9]+")), .by_group = TRUE) %>%
     mutate(
       Sx = retention,
@@ -97,7 +98,7 @@ calc_retention <- function(year) {
   
   # --- (4) summary 계산 ---
   summary <- table %>%
-    group_by(org_admin, sex) %>%
+    group_by(org_region5, sex) %>%
     summarise(
       PPRR = tail(lx, 1),
       e0 = ex[which.min(as.numeric(str_extract(as.character(agegr), "^[0-9]+")))],
@@ -115,46 +116,46 @@ calc_retention <- function(year) {
 
 # --- (5) 반복 수행 ---
 years <- c(2000, 2010, 2015, 2020)
-results <- map(years, calc_retention)
+results_5area <- map(years, calc_retention_5area)
 
 # --- (6) 결과 병합 ---
 # 각 결과 병합 + 연도 부여
-retention_all <- map_dfr(results, "retention", .id = "index") |>
+retention_all_5area <- map_dfr(results_5area, "retention", .id = "index") |>
   mutate(year = years[as.integer(index)]) |>
   select(-index) |>
-  filter(org_admin != "Abroad")
+  filter(org_region5 != "Abroad")
 
-table_all <- map_dfr(results, "table", .id = "index") |>
+table_all_5area <- map_dfr(results_5area, "table", .id = "index") |>
   mutate(year = years[as.integer(index)]) |>
   select(-index) |>
-  filter(org_admin != "Abroad")
+  filter(org_region5 != "Abroad")
 
-summary_all <- map_dfr(results, "summary", .id = "index") |>
+summary_all_5area <- map_dfr(results_5area, "summary", .id = "index") |>
   mutate(year = years[as.integer(index)]) |>
   select(-index) |>
-  filter(org_admin != "Abroad")
+  filter(org_region5 != "Abroad")
 
 # wide 형태 요약표
-table_all_wide <- summary_all %>%
-  select(year, org_admin, sex, PPRR) %>%
+table_all_wide_5area <- summary_all_5area %>%
+  select(year, org_region5, sex, PPRR) %>%
   pivot_wider(names_from = sex, values_from = PPRR)
 
-table_all_wide
+table_all_wide_5area
 
 
 
 # 요약 진단용 표 만들기
 
-diagnosis_table <- summary_all %>%
+diagnosis_table_5area <- summary_all_5area %>%
   # PPRR 테이블과 원자료의 인구수 결합
   left_join(
-    retention_all %>%
-      group_by(year, org_admin, sex) %>%
+    retention_all_5area %>%
+      group_by(year, org_region5, sex) %>%
       summarise(total_pop = sum(native + none, na.rm = TRUE), .groups = "drop"),
-    by = c("year", "org_admin", "sex")
+    by = c("year", "org_region5", "sex")
   ) %>%
   # wide 형태로 전환
-  select(year, org_admin, sex, PPRR, total_pop) %>%
+  select(year, org_region5, sex, PPRR, total_pop) %>%
   pivot_wider(
     names_from = sex,
     values_from = c(PPRR, total_pop),
@@ -172,10 +173,10 @@ diagnosis_table <- summary_all %>%
   ) %>%
   arrange(year, desc(PPRR_Total))
 
-diagnosis_table
+diagnosis_table_5area
 
-table_all |> 
-  group_by(year, org_admin, sex) |> 
+table_all_5area |> 
+  group_by(year, org_region5, sex) |> 
   summarise(mean = mean(qx), 
             max = max(qx), 
             min = min(qx)) |> 
@@ -184,10 +185,10 @@ table_all |>
 
 
 # Test some graphs 
-table_all %>%
-  filter(year == 2000, sex == "Total", !is.na(org_admin), !(org_admin =="Abroad")) %>%
+table_all_5area %>%
+  filter(year == 2000, sex == "Total", !is.na(org_region5), !(org_region5 =="Abroad")) %>%
   mutate(age_lower = as.numeric(sub("^(\\d+).*", "\\1", agegr))) %>%  # 연령 하한 추출
-  ggplot(aes(x = age_lower, y = lx, group = org_admin, color = org_admin)) +
+  ggplot(aes(x = age_lower, y = lx, group = org_region5, color = org_region5)) +
   geom_line() +
   geom_point() +
   scale_x_continuous(breaks = seq(0, 80, 5)) +
@@ -195,11 +196,11 @@ table_all %>%
   theme_minimal()
 
 
-write.csv(table_all, "data/table_all.csv", row.names = FALSE)
+write.csv(table_all_5area, "data/table_all_5area.csv", row.names = FALSE)
 
 
 
-
-## retention 비율의 단조 증가 가정 위배 
+table_all_5area
+## 35세까지 줄여서 사용하기로 함
 
 
