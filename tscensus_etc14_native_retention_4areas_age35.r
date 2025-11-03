@@ -39,37 +39,26 @@ pop2005 <- readRDS("data/pop2005.rds")
 pop2010 <- readRDS("data/pop2010.rds")
 pop2015 <- readRDS("data/pop2015.rds")
 
-library(dplyr)
-library(tidyr)
-library(purrr)
-library(stringr)
-library(dplyr)
-library(tidyr)
-library(purrr)
-library(stringr)
-
-pop2020
-library(dplyr)
-library(tidyr)
-library(stringr)
-library(purrr)
 
 calc_retention_5area_youth <- function(year) {
   file_path <- paste0("data/pop", year, ".rds")
-  pop <- readRDS(file_path)
+  pop <- readRDS(file_path) |> 
+    mutate(
+      org_region5 = as.character(org_region5),
+      res_region5 = as.character(res_region5)
+    )
   
-  # --- (1) Total 범주 추가 ---
-  pop_total <- pop %>%
+  # --- (1) 성별 Total 추가 ---
+  pop_total_sex <- pop %>%
     group_by(org_region5, res_region5, agegr) %>%
     summarise(pop_weighted = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
     mutate(sex = "Total")
   
-  pop_all <- bind_rows(pop, pop_total)
+  pop_all <- bind_rows(pop, pop_total_sex)
   
-  # --- (2) 연령 상한 35+으로 제한 (35세 초과 구간은 35+로 통합) ---
+  # --- (2) 연령 상한 35+으로 제한 후 묶기 ---
   pop_all <- pop_all %>%
     mutate(
-      # agegr이 "35+" 이상이면 모두 "35+"로 처리
       age_lower = as.numeric(str_extract(agegr, "^[0-9]+")),
       agegr = if_else(age_lower >= 35, "35+", agegr)
     ) %>%
@@ -77,23 +66,42 @@ calc_retention_5area_youth <- function(year) {
     summarise(pop_weighted = sum(pop_weighted, na.rm = TRUE), .groups = "drop")
   
   # --- (3) retention 계산 ---
-  retention <- pop_all %>%
+  # (3-1) 지역별 retention
+  retention_region <- pop_all %>%
     mutate(
       org_region5 = as.character(org_region5),
       res_region5 = as.character(res_region5),
-      native = ifelse(org_region5 == res_region5, "native", "none")
+      native = if_else(org_region5 == res_region5, "native", "none")
     ) %>%
     group_by(org_region5, sex, agegr, native) %>%
     summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
     pivot_wider(names_from = native, values_from = pop, values_fill = 0) %>%
-    mutate(retention = native / (native + none), 
-           year = year)
+    mutate(
+      retention = native / (native + none),
+      year = year
+    )
+  
+  # (3-2) 전지역 Total retention (org_region5를 그룹에서 제거)
+  retention_total <- pop_all %>%
+    mutate(
+      native = if_else(org_region5 == res_region5, "native", "none")
+    ) %>%
+    group_by(sex, agegr, native) %>%
+    summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(names_from = native, values_from = pop, values_fill = 0) %>%
+    mutate(
+      retention = native / (native + none),
+      year = year,
+      org_region5 = "Total"
+    )
+  
+  # (3-3) 합치기
+  retention <- bind_rows(retention_region, retention_total)
   
   # --- (4) 생명표 계산 (35+까지만 포함) ---
   table <- retention %>%
     group_by(org_region5, sex) %>%
     arrange(as.numeric(str_extract(agegr, "^[0-9]+")), .by_group = TRUE) %>%
-    # 35+까지만 포함
     filter(as.numeric(str_extract(agegr, "^[0-9]+")) <= 35 | agegr == "35+") %>%
     mutate(
       Sx = retention,
@@ -102,10 +110,8 @@ calc_retention_5area_youth <- function(year) {
       qx = 1 - px,
       qx = if_else(is.na(qx), 0, qx),
       px = if_else(is.na(px), 1, px),
-      # --- qx를 0~1 사이로 제한 ---
       qx = pmin(pmax(qx, 1e-6), 1 - 1e-6),
       px = 1 - qx,
-      # --- 생명표 계산 ---
       lx = cumprod(c(1, head(px, -1))),
       dx = lx * qx,
       Lx = 5 * (lx - 0.5 * dx),
@@ -118,19 +124,21 @@ calc_retention_5area_youth <- function(year) {
   summary <- table %>%
     group_by(org_region5, sex) %>%
     summarise(
-      PPNYR = tail(lx, 1),  # 35세까지 잔류 확률
+      PPNYR = tail(lx, 1),
       e0 = ex[which.min(as.numeric(str_extract(as.character(agegr), "^[0-9]+")))],
       .groups = "drop"
     ) %>%
     mutate(year = year)
   
-  return(list(
+  list(
     year = year,
     retention = retention,
     table = table,
     summary = summary
-  ))
+  )
 }
+
+
 
 # --- (6) 반복 실행 예시 ---
 years <- c(2000, 2010, 2015, 2020)
@@ -146,6 +154,18 @@ table_all_wide_5area_youth <- summary_5area_youth_all %>%
   pivot_wider(names_from = sex, values_from = PPNYR)
 
 table_all_wide_5area_youth
+
+
+PPNYR5 <- summary_5area_youth_all %>% 
+  filter(org_region5 !="NA") |> 
+  select(year, org_region5, sex, PPNYR) |> 
+  mutate(org_region5 = factor(org_region5, levels = c("Total", "Seoul", "Rest Capital", "Metros", "Provinces", "Abroad")), 
+         sex = factor(sex, levels = c("Male", "Female", "Total"))) |>
+  arrange(org_region5, sex) |> 
+  mutate(PPNYR = round(PPNYR, 3)) |> 
+  pivot_wider(names_from = c(sex, year), values_from = PPNYR) |> 
+  filter(!is.na(org_region5)) 
+write.csv(PPNYR5, "data/PPNR5.csv", row.names = FALSE)
 
 
 # --- (2) 요약 진단용 표 만들기 ---

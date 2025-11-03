@@ -47,13 +47,20 @@ library(tidyr)
 library(stringr)
 library(purrr)
 library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(purrr)
 
-# --- (1) 함수 정의 ---
 calc_retention_youth <- function(year) {
   file_path <- paste0("data/pop", year, ".rds")
-  pop <- readRDS(file_path)
+  pop <- readRDS(file_path) %>%
+    mutate(
+      org_admin = as.character(org_admin),
+      res_admin = as.character(res_admin)
+    )
   
-  # --- (1) Total 범주 추가 ---
+  # --- (1) 성별 Total 범주 추가 ---
   pop_total <- pop %>%
     group_by(org_admin, res_admin, agegr) %>%
     summarise(pop_weighted = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
@@ -71,11 +78,12 @@ calc_retention_youth <- function(year) {
     summarise(pop_weighted = sum(pop_weighted, na.rm = TRUE), .groups = "drop")
   
   # --- (3) retention 계산 ---
-  retention <- pop_all %>%
+  # (3-1) 행정구역별 retention
+  retention_region <- pop_all %>%
     mutate(
       org_admin = as.character(org_admin),
       res_admin = as.character(res_admin),
-      native = ifelse(org_admin == res_admin, "native", "none")
+      native = if_else(org_admin == res_admin, "native", "none")
     ) %>%
     group_by(org_admin, sex, agegr, native) %>%
     summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
@@ -84,6 +92,25 @@ calc_retention_youth <- function(year) {
       retention = native / (native + none),
       year = year
     )
+  
+  # (3-2) 전체 Total (모든 org_admin 합)
+  retention_total <- pop_all %>%
+    mutate(
+      org_admin = as.character(org_admin),
+      res_admin = as.character(res_admin),
+      native = if_else(org_admin == res_admin, "native", "none")
+    ) %>%
+    group_by(sex, agegr, native) %>%  # org_admin 제외
+    summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(names_from = native, values_from = pop, values_fill = 0) %>%
+    mutate(
+      retention = native / (native + none),
+      org_admin = "Total",  # 전체 행정구역 묶음
+      year = year
+    )
+  
+  # (3-3) 합치기
+  retention <- bind_rows(retention_region, retention_total)
   
   # --- (4) 생명표 계산 (35+까지만 포함) ---
   table <- retention %>%
@@ -126,6 +153,7 @@ calc_retention_youth <- function(year) {
   ))
 }
 
+
 # --- (6) 반복 수행 ---
 years <- c(2000, 2010, 2015, 2020)
 results_youth <- map(years, calc_retention_youth)
@@ -152,8 +180,18 @@ table_all_wide_youth <- summary_youth_all %>%
   select(year, org_admin, sex, PPNYR) %>%
   pivot_wider(names_from = sex, values_from = PPNYR)
 
-table_all_wide_youth
+table_all_wide_youth 
 
+
+PPNYR17 <- summary_youth_all %>%
+  select(year, org_admin, sex, PPNYR) |> 
+  mutate(org_admin = factor(org_admin, levels = c("Total", region_levels17)), 
+         sex = factor(sex, levels = c("Male", "Female", "Total"))) |>
+  arrange(org_admin, sex) |> 
+  pivot_wider(names_from = c(sex, year), values_from = PPNYR) |> 
+  filter(!is.na(org_admin))
+
+write.csv(PPNYR17, "data/PPNR17.csv", row.names = FALSE)
 
 # --- (9) 요약 진단용 표 만들기 ---
 diagnosis_table_youth <- summary_youth_all %>%
