@@ -54,7 +54,7 @@ fer1990 <- ts1990 |>
 ceball <- bind_rows(fer2020, fer2015, fer2010, fer2000, fer1990) |> 
   filter(sex == "Female")
 saveRDS(ceball, "data/ceball.rds")
-
+ceball<- readRDS("data/ceball.rds")
 
 ## This is to study completed fertility (CF :cohort persepective)
 ferall <- bind_rows(fer2020, fer2015, fer2010, fer2000, fer1990) |> 
@@ -62,8 +62,9 @@ ferall <- bind_rows(fer2020, fer2015, fer2010, fer2000, fer1990) |>
   mutate(CF_flag = ifelse(year %in% c(2020, 2015, 2010) & age >=45 & age <=49, 1, 
                           ifelse(year %in% c(2000, 1990) & age >=45 & age <=54, 1, 0)))  |> 
   filter(CF_flag ==1, sex == "Female")
-saveRDS(ferall, "data/ferall")           
-           
+saveRDS(ferall, "data/ferall.rds")           
+ferall<- readRDS("data/ferall.rds")
+
 
 
 
@@ -76,6 +77,7 @@ myfer <- ferall |>
          cohort2 = cohort1 - 4, 
          cohort = paste(cohort2, cohort1, sep = "-")) 
 saveRDS(myfer, "data/myfer.rds")
+myfer <- readRDS("data/myfer.rds")
 
 a <- myfer |> 
   filter(cohort == "1956-1960")
