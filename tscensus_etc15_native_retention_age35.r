@@ -32,8 +32,6 @@ wighted<- readRDS("data/pop2020.rds")
 
 # 2) 변수 팩터화(순서 고정) ------------------------------------------
 
-colnames(pop2020)
-
 pop2000 <- readRDS("data/pop2000.rds")
 pop2005 <- readRDS("data/pop2005.rds")
 pop2010 <- readRDS("data/pop2010.rds")
@@ -232,16 +230,18 @@ table_youth_all %>%
 
 # --- (11) 그래프 예시 ---
 table_youth_all %>%
-  filter(year == 2000, sex == "Total", !is.na(org_admin), !org_admin %in% c("Abroad", "NA")) %>%
+  filter(year == 2020, sex == "Total", !is.na(org_admin), !org_admin %in% c("Abroad", "NA")) %>%
   mutate(age_lower = as.numeric(sub("^(\\d+).*", "\\1", agegr))) %>%
   ggplot(aes(x = age_lower, y = lx, group = org_admin, color = org_admin)) +
   geom_line(size = 1) +
   geom_point(size = 2) +
-  scale_x_continuous(breaks = seq(0, 35, 5), limits = c(0, 35)) +
-  labs(
-    x = "Age group (lower bound)",
-    y = "lx (retained population ratio)",
-    title = "Youth Retention Curves by Region (PPNYR, ≤35)"
+  scale_x_continuous(breaks = seq(0, 35, 5),labels = c("0-4", "5-9", "10-14", "15-19", "20-24", "25-29", "30-34", "35+")) +
+  #  scale_x_continuous(breaks = seq(0, 35, 5), limits = c(0, 35)) +
+  scale_y_continuous(limits = c(0.1, 1)) + 
+  labs( shape = "Place of birth", color = "Place of birth", lty = "Place of birth",
+        x = "Age group",
+        y = "Proportion of retained population",
+        #    title = "Youth Retention Curves by Region (PPNYR, ≤35)"
   ) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "bottom")

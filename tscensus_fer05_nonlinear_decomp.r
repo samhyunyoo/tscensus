@@ -10,7 +10,6 @@ library(tidyverse)
 
 
 # 1. Check the data again ---------------------------------------------------
-
 library(ggplot2)
 library(dplyr)
 library(scales)
@@ -42,6 +41,32 @@ library(tibble)
 # ------------------------------------------------------------
 # (2) 사용자 정의 함수: Poisson 분해
 # ------------------------------------------------------------
+poisson_decomp_weighted <- function(mA, mB, dfA, dfB, wA, wB) {
+  
+  # 예측값 계산
+  muA_A <- predict(mA, newdata = dfA, type = "response")
+  muA_B <- predict(mA, newdata = dfB, type = "response")
+  muB_B <- predict(mB, newdata = dfB, type = "response")
+  
+  # 가중 평균
+  meanA <- weighted.mean(muA_A, wA)
+  meanB <- weighted.mean(muB_B, wB)
+  
+  # 총 변화량
+  total_change <- meanB - meanA
+  
+  # 구성효과: X 변화만 반영 (계수는 mA 고정)
+  comp_effect <- weighted.mean(muA_B, wB) - weighted.mean(muA_A, wA)
+  
+  # 계수효과: 베타 변화만 반영 (X는 B 시점 고정)
+  coef_effect <- weighted.mean(muB_B, wB) - weighted.mean(muA_B, wB)
+  
+  tibble(
+    component = c("composition", "coefficient", "total_change"),
+    value = c(comp_effect, coef_effect, total_change)
+  )
+}
+
 # ------------------------------------------------------------
 # (1) 변수별 구성·계수 효과 분해 함수
 # ------------------------------------------------------------
@@ -133,8 +158,10 @@ final_byvar_all %>%
   gt::fmt_number(columns = c("1990-2010", "2010-2015", "2015-2020"), decimals = 3)
 
 
-
-
+df |> filter(year ==2020)
+m2020 <- glm(ceb ~ agegrp + educ + org_region5 + res_region5 +afm_cat, 
+             family = poisson(link="log"), data = df |> filter(year ==2020), weights = w)
+summary(m2020)
 
 
 

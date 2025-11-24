@@ -230,26 +230,33 @@ unique(
   table_5area_youth_all$org_region5)
 table_5area_youth_all$org_region5 <- factor(table_5area_youth_all$org_region5, 
                                             levels = c("Seoul", "Rest Capital", "Metros", "Provinces"))
+## 2020 four-areas 
 table_5area_youth_all %>%
-  filter(year == 2000, sex == "Total", !is.na(org_region5), !org_region5 %in% c("Abroad", "NA")) %>%
+  filter(year == 2020, sex == "Total", !is.na(org_region5), !org_region5 %in% c("Abroad", "NA")) %>%
   mutate(age_lower = as.numeric(sub("^(\\d+).*", "\\1", agegr))) %>%
-  ggplot(aes(x = age_lower, y = lx, group = org_region5, color = org_region5)) +
+  ggplot(aes(x = age_lower, y = lx, group = org_region5, 
+             shape = org_region5, color = org_region5, lty = org_region5)) +
   geom_line(linewidth = 1) +
   geom_point(size = 2) +
-  scale_x_continuous(breaks = seq(0, 35, 5), limits = c(0, 35)) +
-  labs(
-    x = "Age group (lower bound)",
-    y = "lx (retained population ratio)",
-    title = "Youth Retention Curves by Region (PPNYR, ≤35)"
+  scale_x_continuous(breaks = seq(0, 35, 5),labels = c("0-4", "5-9", "10-14", "15-19", "20-24", "25-29", "30-34", "35+")) +
+#  scale_x_continuous(breaks = seq(0, 35, 5), limits = c(0, 35)) +
+  scale_y_continuous(limits = c(0.4, 1)) + 
+  labs( shape = "Place of birth", color = "Place of birth", lty = "Place of birth",
+    x = "Age group",
+    y = "Proportion of Native Youths Retained",
+#    title = "Youth Retention Curves by Region (PPNYR, ≤35)"
   ) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "bottom")
 
-write.csv(table_all_5area, "data/table_all_5area.csv", row.names = FALSE)
+ggsave("graphs/survival_PPNYR_2020_4areas.png", width = 10, height = 6, dpi = 300)
+
+
+write.csv(table_5area_youth_all, "data/table_5area_youth_all.csv", row.names = FALSE)
 
 
 
-table_all_5area
+table_5area_youth_all
 ## 35세까지 줄여서 사용하기로 함
 
 
