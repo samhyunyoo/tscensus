@@ -252,6 +252,11 @@ table_5area_youth_all %>%
 ggsave("graphs/survival_PPNYR_2020_4areas.png", width = 10, height = 6, dpi = 300)
 
 
+a <- table_5area_youth_all %>%
+  filter(year == 2020, sex == "Total", !is.na(org_region5), !org_region5 %in% c("Abroad", "NA")) %>%
+  mutate(age_lower = as.numeric(sub("^(\\d+).*", "\\1", agegr))) |> 
+  select(org_region5, sex, agegr, retention, Sx, lx, qx, age_lower)
+write.csv(a, "data/a.csv", row.names = FALSE)
 write.csv(table_5area_youth_all, "data/table_5area_youth_all.csv", row.names = FALSE)
 
 

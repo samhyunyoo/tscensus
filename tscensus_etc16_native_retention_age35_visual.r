@@ -52,6 +52,9 @@ order_prov <- table_youth_all |>
 hline_df <- order_prov |> filter(year == 2020, sex != "Total", org_admin == "Total") |> 
   select(sex, retention)
   
+b <- order_prov |> filter(year == 2020, sex != "Total", org_admin != "Total")
+write.csv(b, "data/b.csv", row.names = FALSE)
+
 order_prov |> filter(year == 2020, sex != "Total", org_admin != "Total") |> 
   ggplot(aes(x = reorder(org_admin, order), y = retention, fill = sex)) +
   geom_col() + 
