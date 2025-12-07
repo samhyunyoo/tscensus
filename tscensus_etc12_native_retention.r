@@ -13,6 +13,20 @@ library(ggplot2)
 library(patchwork)
 library(scales)
 library(forcats)
+library(tidyverse)
+library(scales)
+library(RColorBrewer)
+library(colorspace)
+
+
+pal_admin <- colorRampPalette(brewer.pal(12, "Paired"))(19)
+
+pal_admin[8]  <- desaturate(pal_admin[8], amount = 1)
+pal_admin[3]  <- darken(pal_admin[3], amount = 0.2)
+pal_admin[17] <- darken(pal_admin[17], amount = 0.3)
+
+pal_comp <- c("#e31a1c", "#ff7f00", "#1f78b4", "#33a02c", "#ba39a0", "#bebebe")
+
 
 # 0) 시도 레벨(주신 case_when 순서 그대로) --------------------------
 region_levels17 <- c(
@@ -32,7 +46,6 @@ wighted<- readRDS("data/pop2020.rds")
 
 # 2) 변수 팩터화(순서 고정) ------------------------------------------
 
-colnames(pop2020)
 
 pop2000 <- readRDS("data/pop2000.rds")
 pop2005 <- readRDS("data/pop2005.rds")
@@ -48,7 +61,7 @@ library(tidyr)
 library(purrr)
 library(stringr)
 
-calc_retention <- function(year) {
+calc_retention <- function(year, youth_upper = 35) {
   file_path <- paste0("data/pop", year, ".rds")
   pop <- readRDS(file_path)
   
@@ -69,24 +82,31 @@ calc_retention <- function(year) {
     ) |>
     group_by(org_admin, sex, agegr, native) |>
     summarise(pop = sum(pop_weighted, na.rm = TRUE), .groups = "drop") |>
-    pivot_wider(names_from = native, values_from = pop, values_fill = 0) |>
+    tidyr::pivot_wider(names_from = native, values_from = pop, values_fill = 0) |>
     mutate(retention = native / (native + none))
   
-  # --- (3) table 계산 (평활화 없음, qx 클리핑 포함) ---
+  # --- (3) life-table용 table 계산 (본문의 수식에 맞춤) ---
   table <- retention %>%
+    # age 하한 추출
+    mutate(age_lower = as.numeric(stringr::str_extract(agegr, "^[0-9]+"))) %>%
     group_by(org_admin, sex) %>%
-    arrange(as.numeric(str_extract(agegr, "^[0-9]+")), .by_group = TRUE) %>%
+    arrange(age_lower, .by_group = TRUE) %>%
     mutate(
+      # 누적 잔류비율 l(x)에 해당하는 값 (정규화 전)
       Sx = retention,
-      Sx = Sx / first(Sx),
-      px = lead(Sx) / Sx,
+      # x = 0에서 1이 되도록 정규화 (본문: "연령 x가 0세일 때의 잔류비율로 정규화")
+      Sx = Sx / dplyr::first(Sx),
+      # 인접 연령구간 [x, x+n)에서의 조건부 잔류확률 px = S(x+n)/S(x)
+      px = dplyr::lead(Sx) / Sx,
       qx = 1 - px,
-      qx = if_else(is.na(qx), 0, qx),
-      px = if_else(is.na(px), 1, px),
-      # --- qx를 0~1 사이로 제한 ---
+      # NA 처리
+      qx = dplyr::if_else(is.na(qx), 0, qx),
+      px = dplyr::if_else(is.na(px), 1, px),
+      # 귀환이동 미식별 및 기술적 안정성 확보를 위한 clipping
+      # (본문에서 언급한 "이론적 범위 밖 값" 보정)
       qx = pmin(pmax(qx, 1e-6), 1 - 1e-6),
       px = 1 - qx,
-      # --- 생명표 계산 ---
+      # 생명표식 누적 잔류확률 l(x) = ∏ px (Sx와 이론상 동일하지만, clipping 반영 버전)
       lx = cumprod(c(1, head(px, -1))),
       dx = lx * qx,
       Lx = 5 * (lx - 0.5 * dx),
@@ -95,12 +115,15 @@ calc_retention <- function(year) {
     ) %>%
     ungroup()
   
-  # --- (4) summary 계산 ---
+  # --- (4) summary 계산: PPNYR = 35세까지 누적 잔류확률 ---
   summary <- table %>%
     group_by(org_admin, sex) %>%
     summarise(
-      PPRR = tail(lx, 1),
-      e0 = ex[which.min(as.numeric(str_extract(as.character(agegr), "^[0-9]+")))],
+      # 청년 상한연령(예: 35세)에 최초로 도달하는 구간의 lx를 PPNYR로 사용
+      PPNYR = {
+        idx <- which(age_lower >= youth_upper)[1]
+        if (is.na(idx)) NA_real_ else lx[idx]
+      },
       .groups = "drop"
     ) %>%
     mutate(year = year)
@@ -112,6 +135,7 @@ calc_retention <- function(year) {
     summary = summary
   ))
 }
+
 
 # --- (5) 반복 수행 ---
 years <- c(2000, 2010, 2015, 2020)
@@ -136,50 +160,39 @@ summary_all <- map_dfr(results, "summary", .id = "index") |>
 
 # wide 형태 요약표
 table_all_wide <- summary_all %>%
-  select(year, org_admin, sex, PPRR) %>%
-  pivot_wider(names_from = sex, values_from = PPRR)
+  select(year, org_admin, sex, PPNYR) %>%
+  tidyr::pivot_wider(names_from = sex, values_from = PPNYR)
 
-table_all_wide
 
 
 
 # 요약 진단용 표 만들기
-
 diagnosis_table <- summary_all %>%
-  # PPRR 테이블과 원자료의 인구수 결합
+  # PPNYR 테이블과 원자료의 인구수 결합
   left_join(
     retention_all %>%
       group_by(year, org_admin, sex) %>%
       summarise(total_pop = sum(native + none, na.rm = TRUE), .groups = "drop"),
     by = c("year", "org_admin", "sex")
   ) %>%
-  # wide 형태로 전환
-  select(year, org_admin, sex, PPRR, total_pop) %>%
-  pivot_wider(
+  select(year, org_admin, sex, PPNYR, total_pop) %>%
+  tidyr::pivot_wider(
     names_from = sex,
-    values_from = c(PPRR, total_pop),
+    values_from = c(PPNYR, total_pop),
     names_sep = "_"
   ) %>%
   mutate(
-    # 인구비와 단순 평균 계산
     pop_ratio_MF = total_pop_Male / total_pop_Female,
-    PPRR_mean = (PPRR_Male + PPRR_Female) / 2,
-    # 인구가중평균
-    PPRR_weighted = (PPRR_Male * total_pop_Male + PPRR_Female * total_pop_Female) /
+    PPNYR_mean = (PPNYR_Male + PPNYR_Female) / 2,
+    PPNYR_weighted =
+      (PPNYR_Male * total_pop_Male + PPNYR_Female * total_pop_Female) /
       (total_pop_Male + total_pop_Female),
-    # Total이 남녀보다 높은지 여부
-    higher_than_both = PPRR_Total > pmax(PPRR_Male, PPRR_Female)
+    higher_than_both = PPNYR_Total > pmax(PPNYR_Male, PPNYR_Female)
   ) %>%
-  arrange(year, desc(PPRR_Total))
+  arrange(year, desc(PPNYR_Total))
+
 
 diagnosis_table
-
-table_all |> 
-  group_by(year, org_admin, sex) |> 
-  summarise(mean = mean(qx), 
-            max = max(qx), 
-            min = min(qx)) |> 
-  view()
 
 
 

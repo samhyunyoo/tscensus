@@ -49,6 +49,7 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(purrr)
+library(Iso)
 
 calc_retention_youth <- function(year) {
   file_path <- paste0("data/pop", year, ".rds")
@@ -110,28 +111,27 @@ calc_retention_youth <- function(year) {
   # (3-3) 합치기
   retention <- bind_rows(retention_region, retention_total)
   
-  # --- (4) 생명표 계산 (35+까지만 포함) ---
+  # --- (4) 생명표 계산 (35+ 포함) ---
+
   table <- retention %>%
     group_by(org_admin, sex) %>%
     arrange(as.numeric(str_extract(agegr, "^[0-9]+")), .by_group = TRUE) %>%
-    filter(as.numeric(str_extract(agegr, "^[0-9]+")) <= 35 | agegr == "35+") %>%
+    
+    # ① retention을 단조 감소 형태로 보정 (중요!!)
+    mutate(retention_adj = pava(retention, decreasing = TRUE)) %>%
+    
+    # ② 정규화하여 lx 계산
     mutate(
-      Sx = retention,
-      Sx = Sx / first(Sx),
-      px = lead(Sx) / Sx,
-      qx = 1 - px,
-      qx = if_else(is.na(qx), 0, qx),
+      lx = retention_adj / first(retention_adj),
+      px = lead(lx) / lx,
       px = if_else(is.na(px), 1, px),
-      qx = pmin(pmax(qx, 1e-6), 1 - 1e-6),
-      px = 1 - qx,
-      lx = cumprod(c(1, head(px, -1))),
+      px = pmin(pmax(px, 1e-6), 1 - 1e-6),
+      qx = 1 - px,
       dx = lx * qx,
       Lx = 5 * (lx - 0.5 * dx),
       Tx = rev(cumsum(rev(Lx))),
       ex = Tx / lx
-    ) %>%
-    ungroup() %>%
-    mutate(year = year)
+    )
   
   # --- (5) summary 계산 ---
   summary <- table %>%
