@@ -121,18 +121,18 @@ p <- order_prov |>
   theme(
     legend.position = "none",
     text = element_text(family = "NanumGothic"),
-    axis.text.x = element_text(size = 65),
-    axis.text.y = element_text(size = 65),
-    strip.text  = element_text(size = 70),
-    axis.title  = element_text(size = 70)
+    axis.text.x = element_text(size = 40, margin = margin(t = 15)),
+    axis.text.y = element_text(size = 40, margin = margin(r = 10)),
+    strip.text  = element_text(size = 55, margin = margin(b = 15)),
+    axis.title  = element_text(size = 50),
+    panel.spacing = unit(1.5, "lines")
   )
 p
+
 ggsave("graphs/PPNYR_barplot.png",
        plot = p,
-       width = 20,      # 더 크게
-       height = 15,
-       dpi = 320)
-
+       width = 40, height = 30, units = "cm",
+       dpi = 450, scale = 1.8)
 
 
 # ------------------------------------------------------------
@@ -178,5 +178,6 @@ PNYR <- table_youth_all |>
   arrange(org_admin, sex) |> 
   select(year, org_admin, sex, agegr, lx) |> 
   pivot_wider(names_from = sex, values_from = lx ) 
+
 
 write.csv(PNYR, "data/PNYR.csv", row.names = FALSE)

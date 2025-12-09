@@ -116,23 +116,39 @@ calc_retention_5area_youth <- function(year, youth_upper = 35) {
     ) %>%
     group_by(org_region5, sex) %>%
     arrange(age_lower, .by_group = TRUE) %>%
-    # 35세까지의 연령구간만 사용 (35+는 개방구간으로 처리)
+    
+    # ① 분석연령범위 제한 (개방연령구간 35+ 포함)
     filter(age_lower <= youth_upper) %>%
+    
+    # ② 단면 잔류율 r(x,i)
+    mutate(rx = retention) %>%
+    
+    # ③ PAVA 적용 → 단조 감소 잔류함수 추정
     mutate(
-      # 단면 잔류비율 r(x,i)
-      rx = retention,
-      # 누적 잔류함수 l(x,i) = r(x,i)/r(0,i)
-      lx = rx / dplyr::first(rx),
-      Sx = lx,  # 논문에서의 l(x,i)와 동일, 기록용
-      # 조건부 잔류확률 p_x(i) = l(x+n,i) / l(x,i)
-      px = dplyr::lead(lx) / lx,
+      rx_adj = Iso::pava(rx, decreasing = TRUE)
+    ) %>%
+    
+    # ④ 생명표의 l(x,i) = rx_adj / rx_adj(0)
+    mutate(
+      lx = rx_adj / first(rx_adj),   # 여기서 l0 = 1
+      Sx = lx                       # 기록용 (논문에서 제시할 값)
+    ) %>%
+    
+    # ⑤ 조건부 잔류확률 px = l(x+n)/l(x)
+    mutate(
+      px = lead(lx) / lx,
+      px = if_else(is.na(px), 1, px)    # 개방연령구간 px=1
+    ) %>%
+    
+    # ⑥ qx = 1 - px (안정화 포함)
+    mutate(
       qx = 1 - px,
-      # 마지막 구간(개방연령구간) 처리
-      qx = dplyr::if_else(is.na(qx), 0, qx),
-      px = dplyr::if_else(is.na(px), 1, px),
-      # 이론적 범위 밖의 값 보정
       qx = pmin(pmax(qx, 1e-6), 1 - 1e-6),
-      px = 1 - qx,
+      px = 1 - qx
+    ) %>%
+    
+    # ⑦ dx, Lx, Tx, ex 계산
+    mutate(
       dx = lx * qx,
       Lx = 5 * (lx - 0.5 * dx),
       Tx = rev(cumsum(rev(Lx))),
@@ -297,3 +313,9 @@ write.csv(table_5area_youth_all, "data/table_5area_youth_all.csv", row.names = F
 
 table_5area_youth_all
 ## 35세까지(개방연령구간 35+)를 사용하여 PPNYR 산출
+unique(table_5area_youth_all$org_region5)
+table_5area_youth_all |> 
+  arrange(sex, org_region5) |> 
+  filter(agegr == "35-39", !is.na(org_region5) ) |> 
+  select(year, sex, org_region5, lx) |> 
+  pivot_wider(names_from = year, values_from = lx)

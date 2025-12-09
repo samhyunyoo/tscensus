@@ -111,27 +111,44 @@ calc_retention_youth <- function(year) {
   # (3-3) 합치기
   retention <- bind_rows(retention_region, retention_total)
   
-  # --- (4) 생명표 계산 (35+ 포함) ---
-
+  # --- (4) 생명표 계산 (35세 미만 구간만 PAVA 적용) ---
   table <- retention %>%
+    mutate(age_lower = as.numeric(str_extract(agegr, "^[0-9]+"))) %>%
     group_by(org_admin, sex) %>%
-    arrange(as.numeric(str_extract(agegr, "^[0-9]+")), .by_group = TRUE) %>%
+    arrange(age_lower, .by_group = TRUE) %>%
     
-    # ① retention을 단조 감소 형태로 보정 (중요!!)
-    mutate(retention_adj = pava(retention, decreasing = TRUE)) %>%
-    
-    # ② 정규화하여 lx 계산
+    # ① 35세 미만 구간만 추출하여 PAVA 적용
     mutate(
-      lx = retention_adj / first(retention_adj),
+      rx_raw = retention,
+      rx_adj = {
+        rx_temp <- rx_raw[age_lower < 35]
+        rx_pava <- pava(rx_temp, decreasing = TRUE)
+        c(rx_pava, rx_raw[age_lower == 35])
+      }
+    ) %>%
+    
+    # ② 누적 잔류함수 l(x,i) = r̃(x,i) / r̃(0,i)
+    mutate(
+      lx = rx_adj / first(rx_adj)
+    ) %>%
+    
+    # ③ 구간 생존확률 p_x 계산
+    mutate(
       px = lead(lx) / lx,
       px = if_else(is.na(px), 1, px),
       px = pmin(pmax(px, 1e-6), 1 - 1e-6),
-      qx = 1 - px,
+      qx = 1 - px
+    ) %>%
+    
+    # ④ life-table elements
+    mutate(
       dx = lx * qx,
       Lx = 5 * (lx - 0.5 * dx),
       Tx = rev(cumsum(rev(Lx))),
       ex = Tx / lx
-    )
+    ) %>%
+    ungroup()
+  
   
   # --- (5) summary 계산 ---
   summary <- table %>%
